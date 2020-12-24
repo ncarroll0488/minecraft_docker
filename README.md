@@ -9,3 +9,34 @@
 * `MAX_MEM`: Specify a hard memory limit for the JVM, in Kilobytes. If not set, use 80% of the instance's memory
 * `RCON_PASSWORD`: A password to set on the RCON port. Automatically configured if left empty.
 * `SERVER_USER`: Run as this user
+
+The only required valies are `JAR_BUCKET`, `JAR_FILE`, and `WORLD_BUCKET`. If you omit `WORLD` it will default to `world`
+
+## IAM
+If using this outside of AWS, you will also need to specify `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. While on AWS, you should attach a policy to your task role which allows S3 access.
+
+```json
+{
+  "Statement": [
+    {
+      "Action": [
+        "s3:*"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "your:bucket:arn:here/*"
+      ]
+    },
+    {
+      "Action": [
+        "s3:*"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "your:bucket:arn:here"
+      ]
+    }
+  ],
+  "Version": "2012-10-17"
+}
+```
