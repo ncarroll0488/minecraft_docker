@@ -5,9 +5,16 @@ set -m
 cleanup () {
   # A Blocking exclusive lock on the backup-in-progress flock file, so any existing job can finish
   flock -x "${SERVER_DIR}/world/.backup_in_progress" "${SERVER_DIR}/backup.sh"
+  python3 "${SERVER_DIR}/rcon.py" 'localhost' "${RCON_PORT}" "${RCON_PASSWORD_FILE}" << EOF
+say Server is shutting down in <15 seconds. Any changes beyond this point will not be saved
+EOF
+  sleep 15
   aws s3api delete-object --key "worlds/${WORLD}/.running" --bucket "${WORLD_BUCKET}"
   kill -TERM ${PID}
 }
+
+echo -e "\n\nCPUs: $(nproc)\n\nMemory:"
+cat /proc/meminfo
 
 # Default to using 80% of max mem for Xmx
 [ -z "${MEMPCT}" ] && MEMPCT=80
@@ -118,7 +125,3 @@ trap cleanup SIGINT
 trap cleanup SIGHUP
 
 wait "${PID}"
-
-python3 "${SERVER_DIR}/rcon.py" 'localhost' "${RCON_PORT}" "${RCON_PASSWORD_FILE}" << EOF
-say Server is shutting down. Any changed beyond this point will not be saved
-EOF
