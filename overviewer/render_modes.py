@@ -68,7 +68,7 @@ class rendermode_generator() :
                 config_title = config_title,
                 northdirection = direction)
             renders[render_id] = {
-              'world': world_id,
+              'world': f'{world_id}/world',
               'title': title,
               'rendermode': self.get_render_mode(render_mode),
               'dimension': dimension,

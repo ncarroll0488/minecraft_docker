@@ -1,6 +1,7 @@
 import os
 import datetime
 import render_modes
+import json
 
 try :
   outputdir = os.environ['OUTPUT_DIR']
@@ -8,7 +9,7 @@ except KeyError :
   outputdir = '/app/map'
 
 try :
-  texturepath = os.environ['TEXTURE_PATH']
+  texturepath = os.environ['TEXTURE_DIR']
 except KeyError :
   texturepath = '/app/textures'
 
@@ -21,28 +22,30 @@ renders = {}
 world_dirs = []
 worlds = {}
 for (dirpath, dirnames, filenames) in os.walk(worlds_basedir):
-  world_dirs.extend(dirnames)
+  for d in dirnames :
+    world_dirs.append(f'{worlds_basedir}/{d}')
   break
 
-worlds = { world_dir : os.path.abspath(world_dir) for world_dir in world_dirs }
-
 for world_dir in world_dirs :
+  world_abs_dir = os.path.abspath(f'{world_dir}')
+  worlds.update({world_dir : f'{world_abs_dir}/world'})
+  conf_file = f'{world_abs_dir}/overviewer_config.json'
   config_dict = {
     'world_conf': {},
     'renders': {},
     'render_modes': []}
   try :
-    assert os.file.exists(f'{world_dir}/renderer_config.json')
+    assert os.path.exists(conf_file)
   except AssertionError :
-    print('No config found in world "{world_dir}"')
+    print(f'No config found in world "{conf_file}"')
     continue
-  j = open(f'{world_dir}/renderer_config.json', r)
-  blob = json.read()
+  j = open(conf_file, 'r')
+  blob = json.loads(j.read())
   j.close()
   try :
-    config_dict.update(json.loads(blob))
-  except :
-    print(f'Error parsing json in {world_dir}')
+    config_dict.update(blob)
+  except Exception as e:
+    print(f'Error parsing json in {world_dir}: {e}')
     continue
   try :
     config_dict['world_conf']['world_id']
@@ -50,8 +53,8 @@ for world_dir in world_dirs :
     config_dict['world_conf']['world_id'] = world_dir
   render_generator = render_modes.rendermode_generator(config = config_dict)
   render_generator.generate_all_render_modes()
-  modes.generate_all_render_configs()
-  renders.update(modes.generated_render_config)
+  render_generator.generate_all_render_configs()
+  renders.update(render_generator.generated_render_config)
 
 for r in renders.keys() :
   renders[r]['changelist'] = f'/home/bukkit/overviewer/changelists/{r}.changelist'
