@@ -1,2 +1,4 @@
-numpy==1.14.3
-pillow==8.1.0
+numpy
+pillow
+boto3
+awscli

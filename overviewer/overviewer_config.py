@@ -1,60 +1,53 @@
+import importlib.util
 import os
-import datetime
-import render_modes
-import json
+
+world_name = os.environ['WORLD_NAME']
+world_dir = os.environ['WORLD_DIR']
+config_file = os.environ['CONFIG_FILE']
+
+dev_mode = False
+try :
+  os.environ['DEV_MODE']
+  dev_mode = True
+except KeyError :
+  pass
 
 try :
   outputdir = os.environ['OUTPUT_DIR']
 except KeyError :
-  outputdir = '/app/map'
+  outputdir = '/app/workspace/map'
 
 try :
   texturepath = os.environ['TEXTURE_DIR']
 except KeyError :
-  texturepath = '/app/textures'
+  texturepath = '/app/workspace/textures/default/'
 
 try :
-  worlds_basedir = os.environ['DATA_SOURCE']
+  changelist_dir = os.environ['CHANGELIST_DIR']
 except KeyError :
-  worlds_basedir = '/app/worlds'
+  changelist_dir = '/app/workspace/changelists'
 
-renders = {}
-world_dirs = []
-worlds = {}
-for (dirpath, dirnames, filenames) in os.walk(worlds_basedir):
-  for d in dirnames :
-    world_dirs.append(f'{worlds_basedir}/{d}')
-  break
+changelist_file = f'{changelist_dir}/changelist.txt'
 
-for world_dir in world_dirs :
-  world_abs_dir = os.path.abspath(f'{world_dir}')
-  worlds.update({world_dir : f'{world_abs_dir}/world'})
-  conf_file = f'{world_abs_dir}/overviewer_config.json'
-  config_dict = {
-    'world_conf': {},
-    'renders': {},
-    'render_modes': []}
-  try :
-    assert os.path.exists(conf_file)
-  except AssertionError :
-    print(f'No config found in world "{conf_file}"')
-    continue
-  j = open(conf_file, 'r')
-  blob = json.loads(j.read())
-  j.close()
-  try :
-    config_dict.update(blob)
-  except Exception as e:
-    print(f'Error parsing json in {world_dir}: {e}')
-    continue
-  try :
-    config_dict['world_conf']['world_id']
-  except KeyError :
-    config_dict['world_conf']['world_id'] = world_dir
-  render_generator = render_modes.rendermode_generator(config = config_dict)
-  render_generator.generate_all_render_modes()
-  render_generator.generate_all_render_configs()
-  renders.update(render_generator.generated_render_config)
+worlds = {
+  world_name: f'{world_dir}'
+}
 
-for r in renders.keys() :
-  renders[r]['changelist'] = f'/home/bukkit/overviewer/changelists/{r}.changelist'
+map_config_spec = importlib.util.spec_from_file_location("overviewer_config", config_file)
+map_config = importlib.util.module_from_spec(map_config_spec)
+map_config_spec.loader.exec_module(map_config)
+print(dir(map_config))
+
+global render_vars
+render_vars = {
+  'texturepath': texturepath,
+  'changelist': changelist_file,
+  'world': world_name
+}
+dev_vars = {
+  'forcerender': True,
+  'crop': (-100, -100, 100, 100)
+}
+if dev_mode :
+  render_vars.update(dev_vars)
+renders = {x: {**y, **render_vars} for x, y in map_config.renders.items()}

@@ -1,59 +1,73 @@
 #!/bin/bash
-[ -z "${WORKING_DIR}" ] && WORKING_DIR='/app'
-[ -z "${DATA_SOURCE}" ] && DATA_SOURCE="${WORKING_DIR}/worlds"
-[ -z "${OUTPUT_DIR}" ] && OUTPUT_DIR="${WORKING_DIR}/map"
-[ -z "${TEXTURE_DIR}" ] && TEXTURE_DIR="${WORKING_DIR}/textures"
+[ -n "${S3_BUCKET}" ] || {
+  echo "No S3_BUCKET"
+  exit 1
+}
 
-for MKDIR in "${WORKING_DIR}" "${DATA_SOURCE}" "${OUTPUT_DIR}" "${TEXTURE_DIR}" ; do
-  { [ -d "${MKDIR}" ] || mkdir -p "${MKDIR}" ; } >>/dev/null 2>&1
-  chown bukkit: "${MKDIR}"
-done
+[ -n "${S3_PATH}" ] || {
+  S3_PATH=""
+}
 
-[ -n "${TEXTURE_S3_SOURCE}" ] && aws_s3_sync "${TEXTURE_S3_SOURCE}"
+[ -n "${APP_DIR}" ] || {
+  APP_DIR="/app"
+}
 
-cd "${WORKING_DIR}"
-touch .backup_in_progress
+[ -n "${WORKSPACE}" ] || {
+  WORKSPACE="${APP_DIR}/workspace"
+}
 
-# If we are pulling from S3 as a datasource, then we try to get clean backups of each world
-if [ -n "${S3_SOURCE_BUCKET}" ] ; then
-  [ -z "${S3_SOURCE_PATH}" ] && S3_SOURCE_PATH=/
-  # Iterate over all known subdirectories in s3
-  for WORLD in $(aws s3 ls "${S3_SOURCE_BUCKET}/${S3_SOURCE_PATH}/" | awk '{print $NF}') ; do
+[ -n "${WORLD_NAME}" ] || {
+  echo "Cannot determine WORLD_NAME"
+  exit 1
+}
 
-    CONF_FILE="${S3_SOURCE_PATH}/${WORLD}overviewer_config.json"
+[ -n "${MAP_BUCKET}" ] || {
+  echo "Cannot determine MAP_BUCKET"
+  exit 1
+}
 
-    # Check if the world has been configured
-    echo "Checking to see if world ${CONF_FILE} exists"
-    if aws s3api head-object --bucket "${S3_SOURCE_BUCKET}" --key "${CONF_FILE}" ; then
+TEXTURE_BASE_DIR="${WORKSPACE}/textures/"
 
-      # World is configured. Check for a backup-in-progress
-      while aws s3api head-object --bucket "${S3_SOURCE_BUCKET}" --key "${S3_SOURCE_PATH}/${WORLD}/.backup_in_progress" ; do
-        echo "backup in progress for world ${WORLD}. Delaying sync"
-        sleep 15
-      done
+WORLD_SAVE_DIR="${WORKSPACE}/worlds/${WORLD_NAME}"
 
-      echo "Pulling down world ${WORLD}"
+MAP_SAVE_DIR="${WORKSPACE}/rendered_maps/${WORLD_NAME}"
+[ -d "${MAP_SAVE_DIR}" ] || FIRST_RUN=1
 
-      # Flag this as backup-in-progress
-      aws s3api put-object --bucket "${S3_SOURCE_BUCKET}" --key "${S3_SOURCE_PATH}/${WORLD}/.backup_in_progress" --body .backup_in_progress
+CHANGELIST_DIR="${WORKSPACE}/changelists/${WORLD_NAME}"
 
-      # Sync the dir down
-      aws s3 sync "s3://${S3_SOURCE_BUCKET}/${S3_SOURCE_PATH}/${WORLD}" "${WORKING_DIR}/worlds/${WORLD}"
+mkdir -p "${WORLD_SAVE_DIR}"
+mkdir -p "${MAP_SAVE_DIR}"
+mkdir -p "${CHANGELIST_DIR}"
 
-      # If for some reason the backup lockfile goes missing during sync, we must assume a shutdown was called and therefore our sync was inconsistent
-      if ! aws s3api head-object --bucket "${S3_SOURCE_BUCKET}" --key "${S3_SOURCE_PATH}/${WORLD}/.backup_in_progress" ; then
-        echo ".backup_in_progress went missing in world ${WORLD} during backup. Going to re-sync in case an emergency shutdown occurred"
-        # Sync again, with enthusiasm
-        aws s3 sync --exact-timestamps --delete "${S3_SOURCE_BUCKET}/${S3_SOURCE_PATH}/${WORLD}" "${WORKING_DIR}/worlds/${WORLD}"
-      fi
-      # Remove the lockfile. We don't care if it fails to delete.
-      aws s3api delete-object --bucket "${S3_SOURCE_BUCKET}" --key "${S3_SOURCE_PATH}/${WORLD}/.backup_in_progress" || true
-    fi
-  done
+# Look for an overviewer_config.py in the world path
+if aws s3api head-object --bucket "${S3_BUCKET}" --key "${S3_PATH}/overviewer_config.py" ; then
+  # We found a config file.
+  aws s3 sync "s3://${S3_BUCKET}/${S3_PATH}" "${WORLD_SAVE_DIR}"
+else
+  echo "This world does not have an overviewer_config.py"
+  exit 1
 fi
 
-overviewer.py --quiet --config /app/overviewer_config.py
+if [ -f "${WORLD_SAVE_DIR}/.version" ] ; then
+  VERSION="$(cat "${WORLD_SAVE_DIR}/.version")"
+  TEXTURE_DIR="${TEXTURE_BASE_DIR}/textures/${VERSION}"
+  aws s3 sync "s3://${S3_BUCKET}/textures/${VERSION}" "${TEXTURE_DIR}"
+  export TEXTURE_DIR
+fi
 
-if [ -n "${S3_TARGET_BUCKET}" ] ; then
-  [ -z "${S3_TARGET_PATH}" ] && S3_TARGET_PATH=/
+export WORLD_NAME
+export WORLD_DIR="${WORLD_SAVE_DIR}/world"
+export OUTPUT_DIR="${MAP_SAVE_DIR}"
+export CONFIG_FILE="${WORLD_SAVE_DIR}/overviewer_config.py"
+export CHANGELIST_DIR
+
+# Everything must succeed or we risk corruption
+set -e
+
+overviewer.py --config /app/overviewer_config.py
+
+if [ -n "${DEV_MODE}" ] || [ "${FIRST_RENDER}" == "1" ] || [ -n "${FORCE_S3_SYNC}" ] ; then
+   aws s3 sync --exact-timestamps --delete --acl public-read "${MAP_SAVE_DIR}" "s3://${MAP_BUCKET}/${WORLD_NAME}/"
+else
+  python3 upload_to_s3.py "${MAP_SAVE_DIR}" "${MAP_BUCKET}" "${WORLD_NAME}/" "${CHANGELIST_DIR}"/*
 fi
