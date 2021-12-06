@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import os
 
 world_name = os.environ['WORLD_NAME']
@@ -29,14 +30,12 @@ except KeyError :
 
 changelist_file = f'{changelist_dir}/changelist.txt'
 
+with open(config_file, 'r') as fd :
+  config_dict = json.loads(fd.read())
+
 worlds = {
   world_name: f'{world_dir}'
 }
-
-map_config_spec = importlib.util.spec_from_file_location("overviewer_config", config_file)
-map_config = importlib.util.module_from_spec(map_config_spec)
-map_config_spec.loader.exec_module(map_config)
-print(dir(map_config))
 
 global render_vars
 render_vars = {
@@ -50,4 +49,4 @@ dev_vars = {
 }
 if dev_mode :
   render_vars.update(dev_vars)
-renders = {x: {**y, **render_vars} for x, y in map_config.renders.items()}
+renders = {x: {**y, **render_vars} for x, y in config_dict.items()}

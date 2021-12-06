@@ -44,3 +44,4 @@ RUN chown -R bukkit: /app
 USER bukkit
 WORKDIR /app
 RUN overviewer.py --version
+CMD /bin/bash /app/render.sh
