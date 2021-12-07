@@ -4,17 +4,14 @@ set -m
 
 cleanup () {
   # A Blocking exclusive lock on the backup-in-progress flock file, so any existing job can finish
-  flock -x "${SERVER_DIR}/world/.backup_in_progress" "${SERVER_DIR}/backup.sh"
   python3 "${SERVER_DIR}/rcon.py" 'localhost' "${RCON_PORT}" "${RCON_PASSWORD_FILE}" << EOF
-say Server is shutting down in <15 seconds. Any changes beyond this point will not be saved
+say Server is shutting down. Changes beyond this point may not be saved.
 EOF
-  sleep 15
-  aws s3api delete-object --key "worlds/${WORLD}/.running" --bucket "${WORLD_BUCKET}"
+  flock -x "${SERVER_DIR}/.local_backup_in_progress" true
+  "${SERVER_DIR}/backup.sh"
+  aws s3api delete-object --key "worlds/${WORLD}/.signals/.running" --bucket "${WORLD_BUCKET}"
   kill -TERM ${PID}
 }
-
-echo -e "\n\nCPUs: $(nproc)\n\nMemory:"
-cat /proc/meminfo
 
 # Default to using 80% of max mem for Xmx
 [ -z "${MEMPCT}" ] && MEMPCT=80
@@ -71,12 +68,12 @@ for BUCKET in "${WORLD_BUCKET}" "${JAR_BUCKET}" ; do
   fi
 done
 
-if aws s3api head-object --bucket "${WORLD_BUCKET}" --key "worlds/${WORLD}/.backup_in_progress" >>/dev/null ; then
+if aws s3api head-object --bucket "${WORLD_BUCKET}" --key "worlds/${WORLD}/.signals/.backup_in_progress" >>/dev/null ; then
   echo 'Backup of '"${WORLD}"' did not finish completely. Data could be inconsistent. Abort!'
   exit 1
 fi
 
-until ! aws s3api head-object --bucket "${WORLD_BUCKET}" --key "worlds/${WORLD}/.running" >>/dev/null ; do
+until ! aws s3api head-object --bucket "${WORLD_BUCKET}" --key "worlds/${WORLD}/.signals/.running" >>/dev/null ; do
   echo "Remote bucket has a server that is already running or did not stop clean. Delaying startup 30 seconds."
   sleep 30
 done
@@ -90,6 +87,9 @@ else
   # Automatically accept the EULA
   echo 'eula=true' > 'world/eula.txt'
 fi
+
+# Signal directory, which may not yet exist
+mkdir -p "${SERVER_DIR}/world/.signals"
 
 mkdir jars
 aws s3 cp "s3://${JAR_BUCKET}/${JAR_FILE}" "jars/${JAR_FILE}"
@@ -109,8 +109,8 @@ rcon.password=${RCON_PASSWORD}" >> "${SERVER_DIR}/world/server.properties"
 chown -R "${SERVER_USER}:" "${SERVER_DIR}"
 
 cd 'world'
-touch .running
-aws s3api put-object --body .running --key "worlds/${WORLD}/.running" --bucket "${WORLD_BUCKET}"
+touch "${SERVER_DIR}/world/.signals/.running"
+aws s3api put-object --body "${SERVER_DIR}/world/.signals/.running" --key "worlds/${WORLD}/.signals/.running" --bucket "${WORLD_BUCKET}"
 
 nohup sudo -u "${SERVER_USER}" java "-Xmx${MEM_MAX}K" "-Xms1024M" -jar "../jars/${JAR_FILE}" &
 PID="${!}"

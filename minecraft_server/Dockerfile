@@ -1,10 +1,9 @@
-FROM alpine:latest
+FROM openjdk:17-alpine
 
 RUN apk --update --no-cache add \
   python3 \
   py3-pip \
   bash \
-  openjdk11 \
   sudo
 
 RUN pip3 install --upgrade --no-cache-dir awscli

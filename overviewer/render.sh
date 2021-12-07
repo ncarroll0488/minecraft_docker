@@ -44,7 +44,7 @@ done
 # Look for an overviewer_config.json in the world path
 if aws s3api head-object --bucket "${S3_BUCKET}" --key "${S3_PATH}/.config/overviewer_config.json" ; then
   # We found a config file.
-  aws s3 sync --exact-timestamps --delete --exclude ".signals/.last" "s3://${S3_BUCKET}/${S3_PATH}" "${WORLD_SAVE_DIR}"
+  aws s3 sync --exclude ".signals/.last" --delete "s3://${S3_BUCKET}/${S3_PATH}" "${WORLD_SAVE_DIR}"
 else
   echo "This world does not have an overviewer_config.json"
   exit 1
@@ -53,7 +53,7 @@ fi
 if [ -f "${WORLD_SAVE_DIR}/.config/.version" ] ; then
   VERSION="$(cat "${WORLD_SAVE_DIR}/.config/.version")"
   TEXTURE_DIR="${TEXTURE_BASE_DIR}/${VERSION}"
-  aws s3 sync --exact-timestamps --delete "s3://${S3_BUCKET}/textures/${VERSION}" "${TEXTURE_DIR}"
+  aws s3 sync --delete "s3://${S3_BUCKET}/textures/${VERSION}" "${TEXTURE_DIR}"
   export TEXTURE_DIR
 fi
 
