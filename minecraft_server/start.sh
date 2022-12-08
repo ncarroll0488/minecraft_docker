@@ -28,7 +28,7 @@ cd "${SERVER_DIR}"
 export RCON_PASSWORD_FILE="${SERVER_DIR}/.rcon_pass"
 echo -n "${RCON_PASSWORD}" > "${RCON_PASSWORD_FILE}"
 
-export -p | grep -E ' (SERVER_DIR|WORLD|WORLD_BUCKET|SERVER_USER|JAR_BUCKET|JAR_FILE|RCON_PASSWORD_FILE|RCON_PORT|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID)=' > /.mc_env
+export -p | grep -E ' (SERVER_DIR|WORLD|WORLD_BUCKET|SERVER_USER|JAR_FILE|RCON_PASSWORD_FILE|RCON_PORT|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID)=' > /.mc_env
 
 [ -n "${WORLD}" ] || {
   WORLD='world' 
@@ -46,11 +46,6 @@ export -p | grep -E ' (SERVER_DIR|WORLD|WORLD_BUCKET|SERVER_USER|JAR_BUCKET|JAR_
   echo "Specify a non-root SERVER_USER"
 }
 
-[ -z "${JAR_BUCKET}" ] || [ -z "${JAR_FILE}" ] && {
-  echo "Jar config incomplete - specify a JAR_FILE and JAR_BUCKET"
-  exit 1
-}
-
 # Make sure this dir doesn't exist
 [ -e "${SERVER_DIR}/world" ] && {
   echo "File or directory '${SERVER_DIR}/world' already exists"
@@ -61,7 +56,7 @@ export -p | grep -E ' (SERVER_DIR|WORLD|WORLD_BUCKET|SERVER_USER|JAR_BUCKET|JAR_
 mkdir world
 
 # Make sure the bucket exists
-for BUCKET in "${WORLD_BUCKET}" "${JAR_BUCKET}" ; do
+for BUCKET in "${WORLD_BUCKET}" ; do
   if ! aws s3api head-bucket --bucket "${BUCKET}" >>/dev/null ; then
     echo "Bucket '${BUCKET}' does not seem to exist or is inaccessible."
     exit 1
@@ -92,7 +87,17 @@ fi
 mkdir -p "${SERVER_DIR}/world/.signals"
 
 mkdir jars
-aws s3 cp "s3://${JAR_BUCKET}/${JAR_FILE}" "jars/${JAR_FILE}"
+SERVER_JAR="jars/server.jar"
+echo "Fetching server far from ${JAR_FILE}"
+if grep -qE "^http(s)?://" <<< "${JAR_FILE}" ; then
+  wget "${JAR_FILE}" -O "${SERVER_JAR}"
+elif grep -qE "^s3://" <<< "${JAR_FILE}" ; then
+  aws s3 cp "${JAR_FILE}" "${SERVER_JAR}"
+else
+  echo "Error - Jarfile must be sourced from S3 or HTTP(S)"
+  exit 1
+fi
+SERVER_JAR="$(realpath "${SERVER_JAR}")"
 
 crond -b
 
@@ -112,7 +117,7 @@ cd 'world'
 touch "${SERVER_DIR}/world/.signals/.running"
 aws s3api put-object --body "${SERVER_DIR}/world/.signals/.running" --key "worlds/${WORLD}/.signals/.running" --bucket "${WORLD_BUCKET}"
 
-nohup sudo -u "${SERVER_USER}" java "-Xmx${MEM_MAX}K" "-Xms1024M" -jar "../jars/${JAR_FILE}" &
+nohup sudo -u "${SERVER_USER}" java "-Xmx${MEM_MAX}K" "-Xms1024M" -jar "${SERVER_JAR}" &
 PID="${!}"
 
 until netstat -lntp | grep "${RCON_PORT}" ; do
