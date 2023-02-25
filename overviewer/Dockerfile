@@ -11,7 +11,12 @@ RUN apk --update --no-cache add \
   libc-dev \
   zlib-dev \
   jpeg-dev \
-  git
+  gcc \
+  g++ \
+  git \
+  jq \
+  curl \
+  gawk
 
 # Create app dir
 RUN mkdir /app
@@ -28,13 +33,13 @@ COPY requirements.txt /app/requirements.txt
 
 RUN adduser bukkit --uid 1001 --disabled-password
 
-RUN pip3 install --upgrade --no-cache-dir -r /app/requirements.txt
+RUN MAKEFLAGS="-j $(($(nproc)*2))" pip3 install --upgrade --no-cache-dir -r /app/requirements.txt
 RUN mkdir /app/overviewer
 RUN python3 /app/Minecraft-Overviewer/setup.py build
 RUN python3 /app/Minecraft-Overviewer/setup.py install
 
 COPY render.sh /app
-COPY overviewer_config.py /app
+COPY overviewer_config.default.py /app
 COPY upload_to_s3.py /app
 RUN ln -s /app/render_modes.py /usr/lib/$(basename "$(realpath "$(which python3)")")/site-packages/
 RUN ln -s /app/overviewer_config.py /usr/lib/$(basename "$(realpath "$(which python3)")")/site-packages/
