@@ -1,5 +1,12 @@
 # Building the container
-This is very easy. The container is based off of amazonlinux and has very few dependencies. CD into this directoy and run `./build-container.sh`. By default this tags the image as `unmined:latest`, but you may specify your own tag like this: `./build-container.sh MYTAG:MYVERSION`
+This is very easy. The container is based off of amazonlinux and has very few dependencies. CD into this directoy and run 
+```
+./build-container.sh
+```
+By default this tags the image as `unmined:latest`, but you may specify your own tag like this:
+```
+./build-container.sh MYTAG:MYVERSION
+```
 
 *Warning*: Because the software in question does not offer a source code distribution, the entire download and extract process is done within the build, as to minimize risk to the host system. Extracting and executing files found within the container image is not recommended. Furthermore, if running using S3 or in ECS, provide the absolute bare-minimum policies to whichever IAM entity executes. This is typically just read access to the map data bucket, and read/write to the web document bucket.
 
