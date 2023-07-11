@@ -11,5 +11,7 @@ RUN mkdir map_src
 RUN mkdir map_web
 ADD render.sh render.sh
 ADD main.index.html main.index.html
+ADD custom_config/custom.blockstyles.txt unmined-cli/config/custom.blockstyles.txt
+ADD custom_config/custom.colors.txt unmined-cli/config/custom.colors.txt
 RUN chmod +x render.sh
 CMD /app/render.sh
