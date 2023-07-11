@@ -15,13 +15,13 @@ MAP_DST_S3="$(sed 's:/*$::' <<< "${MAP_DST_S3}")"
 }
 
 # Render the map in daytime mode
-unmined-cli/unmined-cli web render --imageformat=png --shadows=true --zoomin=2 --background='#202020' --world="map_src/world" --output="map_web/overworld_day"
+unmined-cli/unmined-cli web render --imageformat=png --shadows=true --zoomin=1 --background='#202020' --world="map_src/world" --output="map_web/overworld_day"
 
 # Copy the daytime indexfile into place
 cp 'map_web/overworld_day/unmined.index.html' 'map_web/overworld_day/index.html'
 
 # Render the map in nighttime mode
-unmined-cli/unmined-cli web render --imageformat=png --night=true --shadows=true --zoomin=2 --background='#101010' --world="map_src/world" --output="map_web/overworld_night"
+unmined-cli/unmined-cli web render --imageformat=png --night=true --shadows=true --zoomin=1 --background='#101010' --world="map_src/world" --output="map_web/overworld_night"
 
 # Copy the nighttime indexfile into place
 cp 'map_web/overworld_night/unmined.index.html' 'map_web/overworld_night/index.html'
