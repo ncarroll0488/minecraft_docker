@@ -1,6 +1,7 @@
 ld50.stone_brick = #a0a0a0
 ld50.deepslate = #404040
 ld50.copper = #d04000
-ld50.exposed_copper = #a06020
-ld50.weathered_copper = #408070
-ld50.oxidized_copper = #00a0e0
+ld50.exposed_copper = #905010
+ld50.weathered_copper = #407040
+ld50.oxidized_copper = #009060
+ld50.tinted_glass = rgba(16, 16, 16, 0.4)

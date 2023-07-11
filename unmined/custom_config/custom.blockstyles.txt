@@ -1,7 +1,8 @@
 minecraft:stone_brick* = ld50.stone_brick
 minecraft:*deepslate* = ld50.deepslate
-minecraft:cut_copper = ld50.copper
-minecraft:waxed_cut_copper = ld50.copper
+minecraft:cut_copper* = ld50.copper
+minecraft:waxed_cut_copper* = ld50.copper
 minecraft:*exposed_cut* = ld50.exposed_copper
 minecraft:*oxidized_cut* = ld50.oxidized_copper
 minecraft:*weathered_cut* = ld50.weathered_copper
+minecraft:tinted_glass = ld50.tinted_glass
