@@ -4,7 +4,12 @@
 MAP_SRC_S3="$(sed 's:/*$::' <<< "${MAP_SRC_S3}")"
 MAP_DST_S3="$(sed 's:/*$::' <<< "${MAP_DST_S3}")"
 
-[ -n "${DEV_MODE}" ] || [ -n "${FORCE}" ] && FORCE="-f"
+if [ -n "${DEV_MODE}" ] ; then
+  ZOOMIN=3
+  ZOOMOUT=0
+  FORCE=1
+fi
+[ -n "${FORCE}" ] && FORCE="-f"
 grep -qE "^[0-9]+$" <<< "${ZOOMIN}"  || ZOOMIN=1
 grep -qE "^[0-9]+$" <<< "${ZOOMOUT}"  || ZOOMOUT=6
 
@@ -15,7 +20,10 @@ grep -qE "^[0-9]+$" <<< "${ZOOMOUT}"  || ZOOMOUT=6
 
 # Sync the rendered map's metadata files down so rendering and uploading is faster
 [ -n "${MAP_DST_S3}" ] && grep -qE '^s3://' <<< "${MAP_DST_S3}" && {
-  aws s3 sync --exclude="*" --include="*.csv" "${MAP_DST_S3}/" "map_web/"
+  aws s3 cp "${MAP_DST_S3}/map.tar" "map.tar" && { echo "no tar present"
+    tar -zxvf map.tar
+    rm -f map.tar
+  }
 }
 
 # Render the map in daytime mode
@@ -34,6 +42,8 @@ cp 'map_web/overworld_night/unmined.index.html' 'map_web/overworld_night/index.h
 cp 'main.index.html' 'map_web/index.html'
 
 [ -n "${MAP_DST_S3}" ] && grep -qE '^s3://' <<< "${MAP_DST_S3}" && {
-  # Upload the map to S3 if requested
+  # Upload the map to S3 if requested. Make a tar for easy upload/download
+  tar  -czvf 'map.tar' 'map_web/'
+  aws s3 cp --acl 'private' 'map.tar' "${MAP_DST_S3}/map.tar"
   aws s3 sync --exact-timestamps --acl 'public-read' 'map_web/' "${MAP_DST_S3}/"
 }

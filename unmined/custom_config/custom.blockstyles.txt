@@ -6,3 +6,6 @@ minecraft:*exposed_cut* = ld50.exposed_copper
 minecraft:*oxidized_cut* = ld50.oxidized_copper
 minecraft:*weathered_cut* = ld50.weathered_copper
 minecraft:tinted_glass = ld50.tinted_glass
+minecraft:iron_bars = ld50.iron_bars
+minecraft:bricks = ld50.bricks
+minecraft.brick_* = ld50.bricks
